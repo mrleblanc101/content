@@ -2,6 +2,7 @@
 import { h, resolveComponent, Text, defineComponent } from 'vue'
 import destr from 'destr'
 import { pascalCase } from 'scule'
+import { withBase } from 'ufo'
 import { find, html } from 'property-information'
 // eslint-disable-next-line import/no-named-as-default
 import htmlTags from 'html-tags'
@@ -116,7 +117,17 @@ function renderNode (node: MarkdownNode, h: CreateElement, documentMeta: ParsedC
   }
 
   if (node.tag === 'script') {
-    return renderToText(node)
+    return renderToString(node)
+  }
+
+  // Resolve component props
+  const props = propsToData(node, documentMeta)
+
+  // Prepend base URL to absolute images
+  if (node.tag === 'img') {
+    if (props.src?.startsWith('/') && !props.src.startsWith('//')) {
+      props.src = withBase(props.src, useRuntimeConfig().app.baseURL)
+    }
   }
 
   const originalTag = node.tag!
@@ -132,8 +143,6 @@ function renderNode (node: MarkdownNode, h: CreateElement, documentMeta: ParsedC
     component.tag = originalTag
   }
 
-  const props = propsToData(node, documentMeta)
-
   return h(
     component as any,
     props,
@@ -141,7 +150,7 @@ function renderNode (node: MarkdownNode, h: CreateElement, documentMeta: ParsedC
   )
 }
 
-function renderToText (node: MarkdownNode) {
+function renderToString (node: MarkdownNode) {
   if (node.type === 'text') {
     return node.value
   }
@@ -150,7 +159,7 @@ function renderToText (node: MarkdownNode) {
     return `<${node.tag}>`
   }
 
-  return `<${node.tag}>${node.children?.map(renderToText).join('') || ''}</${node.tag}>`
+  return `<${node.tag}>${node.children?.map(renderToString).join('') || ''}</${node.tag}>`
 }
 
 function renderBinding (node: MarkdownNode, h: CreateElement, documentMeta: ParsedContentMeta, parentScope: any = {}): VNode {
